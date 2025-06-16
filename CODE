@@ -1,0 +1,200 @@
+#INSTALAR Y CARGAR LIBRERÍAS
+
+
+install.packages(c("readr", "readxl", "caret", "pROC", "ggplot2", "dplyr", "tidyr", "ggpubr", "ROSE"))
+library(readr)
+library(readxl)
+library(caret)
+library(pROC)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(ggpubr)
+library(ROSE)
+
+#DATA
+data <- read_excel("C:/Users/Carlo/Downloads/Colocaciones de crédito Mivivienda_2024.xlsx")
+
+#LIMPIEZA Y PREPROCESAMIENTO
+data$TIPO_IFI <- as.factor(data$TIPO_IFI)
+data$IFI <- as.factor(data$IFI)
+data$PRODUCTO <- as.factor(data$PRODUCTO)
+
+data$FECHA_DESEMBOLSO <- as.Date(as.character(data$FECHA_DESEMBOLSO), format = "%Y%m%d")
+data$AÑO_DESEMBOLSO <- as.factor(format(data$FECHA_DESEMBOLSO, "%Y"))
+
+num_vars <- c("MONTO_CREDITO", "MONTO_CUOTA_INICIAL", "PLAZOS", "TASA", "MONTO_VALOR_VIVIENDA")
+data[num_vars] <- lapply(data[num_vars], as.numeric)
+
+#Crear una variable de ejemplo binaria
+set.seed(123)
+data$INCUMPLIMIENTO <- sample(0:1, nrow(data), replace = TRUE)
+
+#########################################
+#ESTADÍSTICAS DESCRIPTIVAS
+
+variables <- num_vars
+estadisticas <- data %>%
+  select(all_of(variables)) %>%
+  summarise(across(everything(), list(PROMEDIO = mean,
+                                      MEDIA = median,
+                                      DESVIACION = sd,
+                                      MINIMO = min,
+                                      MAXIMO = max,
+                                      MEDIANA = median),
+                   na.rm = TRUE)) %>%
+  pivot_longer(everything(),
+               names_to = c("VARIABLE", "ESTADISTICA"),
+               names_pattern = "(.*)_(.*)",
+               values_drop_na = TRUE) %>%
+  pivot_wider(names_from = ESTADISTICA, values_from = value)
+
+print(estadisticas)
+#########################################
+#BOXPLOTS POR DEPARTAMENTO
+
+plots <- lapply(variables, function(var) {
+  ggplot(data, aes(x = DEPARTAMENTO, y = .data[[var]])) +
+    geom_boxplot(fill = "lightblue") +
+    geom_hline(yintercept = median(data[[var]], na.rm = TRUE),
+               color = "red", linetype = "dashed") +
+    labs(title = paste("Boxplot de", var, "por DEPARTAMENTO")) +
+    theme_minimal(base_size = 10) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+})
+
+#Mostrar en varias filas
+n_plots <- length(plots)
+n_row <- ceiling(n_plots / 2)
+ggarrange(plotlist = plots, ncol = 2, nrow = n_row)
+
+#########################################
+# DIAGRAMA PASTEL POR DEPARTAMENTO
+
+pie_data_depto <- data %>%
+  count(DEPARTAMENTO) %>%
+  arrange(desc(n)) %>%
+  mutate(pct = n / sum(n) * 100,
+         label = paste(DEPARTAMENTO, round(pct, 1), "%"))
+
+ggplot(pie_data_depto, aes(x = "", y = n, fill = DEPARTAMENTO)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  geom_text(aes(label = label), position = position_stack(vjust = 0.5), size = 3) +
+  labs(title = "Distribución por DEPARTAMENTO") +
+  theme_void()
+
+#########################################
+#DIAGRAMA PASTEL POR DISTRITO
+
+pie_data <- data %>%
+  count(DISTRITO) %>%
+  arrange(desc(n)) %>%
+  mutate(pct = n / sum(n) * 100,
+         label = paste(DISTRITO, round(pct, 1), "%"))
+
+ggplot(pie_data, aes(x = "", y = n, fill = DISTRITO)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  geom_text(aes(label = label), position = position_stack(vjust = 0.5), size = 3) +
+  labs(title = "Distribución por DISTRITO") +
+  theme_void()
+
+#########################################
+# NORMALIZACIÓN
+
+data[variables] <- lapply(data[variables], scale)
+
+#########################################
+# DIVISIÓN DE DATOS
+
+set.seed(42)
+trainIndex <- createDataPartition(data$INCUMPLIMIENTO, p = 0.7, list = FALSE)
+train_data <- data[trainIndex, ]
+test_data <- data[-trainIndex, ]
+
+#########################################
+# Verificar que las variables categóricas tengan más de 1 nivel
+vars_cat <- c("TIPO_IFI", "IFI", "PRODUCTO")
+vars_cat_valid <- vars_cat[sapply(train_data[vars_cat], function(x) length(unique(x)) > 1)]
+
+#########################################
+# Crear fórmula dinámica
+formula <- as.formula(paste(
+  "INCUMPLIMIENTO ~",
+  paste(c(variables, vars_cat_valid, "AÑO_DESEMBOLSO"), collapse = " + ")
+))
+
+#########################################
+# MODELO DE REGRESIÓN LOGÍSTICA
+
+# Eliminar columnas categóricas con un solo nivel en train_data
+vars_cat_multi <- vars_cat_valid[sapply(train_data[vars_cat_valid], function(x) length(unique(x)) > 1)]
+
+# Actualizar fórmula solo con variables válidas
+
+# Variables categóricas a validar (incluyendo AÑO_DESEMBOLSO)
+vars_cat_total <- c(vars_cat, "AÑO_DESEMBOLSO")
+
+# Filtrar solo las que tengan más de un nivel en el conjunto de entrenamiento
+vars_cat_total_valid <- vars_cat_total[sapply(train_data[vars_cat_total], function(x) length(unique(x)) > 1)]
+
+# Crear fórmula dinámica final
+formula <- as.formula(paste(
+  "INCUMPLIMIENTO ~",
+  paste(c(variables, vars_cat_total_valid), collapse = " + ")
+))
+# Asegurar que las variables numéricas estén como numéricas en train_data
+train_data[variables] <- lapply(train_data[variables], as.numeric)
+
+# Verificar y convertir columnas válidas para ROSE
+# Eliminar columnas tipo fecha o que no son numéricas/factor
+train_data <- train_data %>%
+  select(where(~ is.numeric(.) || is.factor(.)))
+
+
+# BALANCEO DE CLASES CON ROSE
+train_data <- ROSE(INCUMPLIMIENTO ~ ., data = train_data, seed = 123)$dat
+
+# Eliminar variables categóricas con un solo nivel (incluye año)
+vars_cat_total <- c(vars_cat, "AÑO_DESEMBOLSO")
+vars_cat_valid <- vars_cat_total[sapply(train_data[vars_cat_total], function(x) length(unique(x)) > 1)]
+
+# Crear fórmula final solo con variables válidas
+formula <- as.formula(paste(
+  "INCUMPLIMIENTO ~",
+  paste(c(variables, vars_cat_valid), collapse = " + ")
+))
+
+# Entrenar modelo
+model <- glm(formula, data = train_data, family = binomial())
+
+
+
+#########################################
+# PREDICCIONES Y MÉTRICAS
+
+# Asegurar que las variables numéricas en test_data sean tipo numérico
+test_data[variables] <- lapply(test_data[variables], as.numeric)
+
+predictions <- predict(model, test_data, type = "response")
+predicted_labels <- ifelse(predictions > 0.5, 1, 0)
+
+# Exactitud
+accuracy <- mean(predicted_labels == test_data$INCUMPLIMIENTO)
+
+# Matriz de Confusión
+conf_matrix <- table(Predicted = predicted_labels, Actual = test_data$INCUMPLIMIENTO)
+
+# AUC
+roc_curve <- roc(test_data$INCUMPLIMIENTO, predictions)
+auc_score <- auc(roc_curve)
+
+#########################################
+# REPORTE
+
+cat("\n=== REPORTE DEL MODELO ===\n\n")
+cat("1. Exactitud (Accuracy):", round(accuracy * 100, 2), "%\n")
+cat("2. AUC (Área Bajo la Curva ROC):", round(auc_score, 2), "\n")
+cat("3. Matriz de Confusión:\n")
+print(conf_matrix)
