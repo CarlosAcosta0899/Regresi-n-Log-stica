@@ -51,23 +51,53 @@ estadisticas <- data %>%
 
 print(estadisticas)
 #########################################
-#BOXPLOTS POR DEPARTAMENTO
+#########################################
+# BOXPLOTS POR DEPARTAMENTO (individuales)
 
-plots <- lapply(variables, function(var) {
-  ggplot(data, aes(x = DEPARTAMENTO, y = .data[[var]])) +
-    geom_boxplot(fill = "lightblue") +
-    geom_hline(yintercept = median(data[[var]], na.rm = TRUE),
-               color = "red", linetype = "dashed") +
-    labs(title = paste("Boxplot de", var, "por DEPARTAMENTO")) +
-    theme_minimal(base_size = 10) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1))
-})
+# MONTO_CREDITO
+ggplot(data, aes(x = DEPARTAMENTO, y = MONTO_CREDITO)) +
+  geom_boxplot(fill = "lightblue") +
+  geom_hline(yintercept = median(data$MONTO_CREDITO, na.rm = TRUE),
+             color = "red", linetype = "dashed") +
+  labs(title = "Boxplot de MONTO_CREDITO por DEPARTAMENTO") +
+  theme_minimal(base_size = 10) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-#Mostrar en varias filas
-n_plots <- length(plots)
-n_row <- ceiling(n_plots / 2)
-ggarrange(plotlist = plots, ncol = 2, nrow = n_row)
+# MONTO_CUOTA_INICIAL
+ggplot(data, aes(x = DEPARTAMENTO, y = MONTO_CUOTA_INICIAL)) +
+  geom_boxplot(fill = "lightblue") +
+  geom_hline(yintercept = median(data$MONTO_CUOTA_INICIAL, na.rm = TRUE),
+             color = "red", linetype = "dashed") +
+  labs(title = "Boxplot de MONTO_CUOTA_INICIAL por DEPARTAMENTO") +
+  theme_minimal(base_size = 10) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
+# PLAZOS
+ggplot(data, aes(x = DEPARTAMENTO, y = PLAZOS)) +
+  geom_boxplot(fill = "lightblue") +
+  geom_hline(yintercept = median(data$PLAZOS, na.rm = TRUE),
+             color = "red", linetype = "dashed") +
+  labs(title = "Boxplot de PLAZOS por DEPARTAMENTO") +
+  theme_minimal(base_size = 10) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# TASA
+ggplot(data, aes(x = DEPARTAMENTO, y = TASA)) +
+  geom_boxplot(fill = "lightblue") +
+  geom_hline(yintercept = median(data$TASA, na.rm = TRUE),
+             color = "red", linetype = "dashed") +
+  labs(title = "Boxplot de TASA por DEPARTAMENTO") +
+  theme_minimal(base_size = 10) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# MONTO_VALOR_VIVIENDA
+ggplot(data, aes(x = DEPARTAMENTO, y = MONTO_VALOR_VIVIENDA)) +
+  geom_boxplot(fill = "lightblue") +
+  geom_hline(yintercept = median(data$MONTO_VALOR_VIVIENDA, na.rm = TRUE),
+             color = "red", linetype = "dashed") +
+  labs(title = "Boxplot de MONTO_VALOR_VIVIENDA por DEPARTAMENTO") +
+  theme_minimal(base_size = 10) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 #########################################
 # DIAGRAMA PASTEL POR DEPARTAMENTO
 
