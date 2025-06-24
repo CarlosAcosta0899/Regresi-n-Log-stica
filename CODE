@@ -232,6 +232,21 @@ print(conf_matrix)
 
 
 #########################################
+# GRÁFICO DE EXACTITUD
+
+
+accuracy_percent <- round(accuracy * 100, 2)
+
+ggplot(data.frame(Métrica = "Exactitud", Valor = accuracy_percent), aes(x = Métrica, y = Valor)) +
+  geom_bar(stat = "identity", fill = "steelblue", width = 0.5) +
+  geom_text(aes(label = paste0(Valor, "%")), vjust = -0.5, size = 5) +
+  ylim(0, 100) +
+  labs(title = "Exactitud del Modelo de Regresión Logística",
+       y = "Porcentaje",
+       x = "") +
+  theme_minimal()
+
+#########################################
 # GRÁFICO CURVA ROC
 
 plot(roc_curve, 
