@@ -228,3 +228,36 @@ cat("1. Exactitud (Accuracy):", round(accuracy * 100, 2), "%\n")
 cat("2. AUC (Área Bajo la Curva ROC):", round(auc_score, 2), "\n")
 cat("3. Matriz de Confusión:\n")
 print(conf_matrix)
+
+
+
+#########################################
+# GRÁFICO CURVA ROC
+
+plot(roc_curve, 
+     col = "#2C3E50", 
+     lwd = 2, 
+     main = "Curva ROC - Regresión Logística")
+abline(a = 0, b = 1, lty = 2, col = "red")  # Línea de referencia
+legend("bottomright", 
+       legend = paste("AUC =", round(auc_score, 2)), 
+       col = "#2C3E50", 
+       lwd = 2, 
+       box.lwd = 0)
+
+#########################################
+# GRÁFICO DE MATRIZ DE CONFUSIÓN
+
+# Convertir la matriz en data frame
+conf_matrix_df <- as.data.frame(as.table(conf_matrix))
+colnames(conf_matrix_df) <- c("Actual", "Predicho", "Frecuencia")
+
+# Crear el gráfico
+ggplot(conf_matrix_df, aes(x = Predicho, y = Actual)) +
+  geom_tile(aes(fill = Frecuencia), color = "white") +
+  geom_text(aes(label = Frecuencia), size = 6) +
+  scale_fill_gradient(low = "lightblue", high = "steelblue") +
+  labs(title = "Matriz de Confusión",
+       x = "Predicción del Modelo",
+       y = "Valor Real") +
+  theme_minimal()
